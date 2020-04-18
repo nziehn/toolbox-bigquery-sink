@@ -2,6 +2,8 @@
 
 This is an alpha version - be sure to test a lot before using it in production.
 
+Requires python >= 3.7!
+
 Example usage:
 
 
@@ -33,4 +35,4 @@ with sink.open() as writer:
     writer({'asd': '1'})
 ```
 
-The think as well as schema fields both offer more parameters for customisation. Esp. on the sink there is more configuration possible to enable table partitioning etc.
+The sink as well as schema fields both offer more parameters for customisation. Esp. on the sink there is more configuration possible to enable table partitioning etc.
