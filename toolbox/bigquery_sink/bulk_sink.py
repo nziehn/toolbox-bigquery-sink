@@ -85,7 +85,7 @@ class BQBulkSink(object):
         self.table_description = table_description
         self.schema = schema
         self.bq_schema = None if self.schema is None else [f.to_bq_field() for f in self.schema]
-        self.labels = labels
+        self.labels = labels or {}
         self.write_disposition = write_disposition.value
         self.auto_update_table_schema = auto_update_table_schema
         self.bq_location = bq_location or access_config.bq_location or 'US'
