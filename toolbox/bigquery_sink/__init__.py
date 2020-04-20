@@ -62,6 +62,7 @@ class FieldType(_enum.Enum):
     STRING = 'STRING'
     BYTES = 'BYTES'
 
+    BOOLEAN = 'BOOLEAN'
     INTEGER = 'INTEGER'
     FLOAT = 'FLOAT'
     NUMERIC = 'NUMERIC'
