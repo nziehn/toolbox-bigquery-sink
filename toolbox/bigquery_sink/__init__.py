@@ -118,7 +118,7 @@ class SchemaField(object):
         """
         return _bigquery.schema.SchemaField(
             name=self.name, field_type=self.field_type.value, mode=self.mode.value or 'NULLABLE',
-            description=self.description, fields=self.fields or ()
+            description=self.description, fields=[f.to_bq_field() for f in self.fields or ()],
         )
 
     def extract(self, row):
