@@ -2,13 +2,14 @@ from __future__ import annotations
 import enum as _enum
 import typing as _typing
 import datetime as _datetime
+import re as _re
 from google.cloud import bigquery as _bigquery
 from google.cloud import storage as _storage
 from google.oauth2 import service_account as _service_account
 from toolbox.bigquery_sink.utils import nest as _nest
 
 
-class AccessConfig(object):
+class Options(object):
     def __init__(
         self,
         project_id: str,
@@ -17,6 +18,8 @@ class AccessConfig(object):
         temp_bucket_root_path: str = None,
         service_account_credentials: dict = None,
         bq_location: str = None,
+        correlation_id: str = None,
+        now: _datetime.datetime = None,
     ):
         """
         Reduce copy paste code: create an access config once and reuse it for multiple sinks
@@ -26,6 +29,8 @@ class AccessConfig(object):
         :param temp_bucket_root_path: The path to the root folder where temp files will be "parked" inside the temp bucket
         :param service_account_credentials: You can provide service account credentials for non-user bound access to google cloud
         :param bq_location: The location where the data should be hosted (only relevant if table does not exist, yet).
+        :param correlation_id: (optional) identifier that allows finding associated objects in microservice architecture
+        :param now: (optional) allows trace passed time since a process was originally started
         """
         self.project_id = project_id
         self.dataset_id = dataset_id
@@ -33,6 +38,13 @@ class AccessConfig(object):
         self.temp_bucket_root_path = temp_bucket_root_path
         self.service_account_credentials = service_account_credentials
         self.bq_location = bq_location
+
+        if correlation_id:
+            if not _re.match(r'[a-z]+', correlation_id):
+                raise ValueError('Correlation id must be sequence of lower case characters!')
+
+        self.correlation_id = correlation_id
+        self.now = now
 
     def get_bigquery_client(self):
         return self._get_client(cls=_bigquery.Client,)
@@ -59,6 +71,8 @@ class AccessConfig(object):
         temp_bucket_root_path: str = None,
         service_account_credentials: dict = None,
         bq_location: str = None,
+        correlation_id: str = None,
+        now: _datetime.datetime = None,
     ):
         """
         Return an access config with the same values but replacing the values that are not None
@@ -68,9 +82,11 @@ class AccessConfig(object):
         :param temp_bucket_root_path: The path to the root folder where temp files will be "parked" inside the temp bucket
         :param service_account_credentials: You can provide service account credentials for non-user bound access to google cloud
         :param bq_location: The location where the data should be hosted (only relevant if table does not exist, yet).
+        :param correlation_id: (optional) identifier that allows finding associated objects in microservice architecture
+        :param now: (optional) allows trace passed time since a process was originally started
         :return: A copy of the access config after replacing the provided fields
         """
-        return AccessConfig(
+        return Options(
             project_id=project_id or self.project_id,
             dataset_id=dataset_id or self.dataset_id,
             temp_bucket_name=temp_bucket_name or self.temp_bucket_name,
@@ -78,6 +94,8 @@ class AccessConfig(object):
             service_account_credentials=service_account_credentials
             or self.service_account_credentials,
             bq_location=bq_location or self.bq_location,
+            correlation_id=correlation_id or self.correlation_id,
+            now=now or self.now,
         )
 
 
@@ -395,19 +413,17 @@ class SchemaField(object):
         )
 
 
-def create_view(
-    name: str, sql: str, access_config: AccessConfig, dataset_id: str = None
-):
+def create_view(name: str, sql: str, options: Options, dataset_id: str = None):
     """
     Create a view inside bigquery
 
     :param name: The name of the view (corresponds to a table id)
     :param sql: The SQL query that specifies the content of the vieww
-    :param dataset_id: You can override the default dataset from the access_config
-    :param access_config: The access config object that defines project_id and other common parameters
+    :param dataset_id: You can override the default dataset from the options
+    :param options: The access config object that defines project_id and other common parameters
     """
-    bigquery = access_config.get_bigquery_client()
-    view_ref = "{}.{}.{}".format(access_config.project_id, dataset_id, name)
+    bigquery = options.get_bigquery_client()
+    view_ref = "{}.{}.{}".format(options.project_id, dataset_id, name)
 
     view = _bigquery.Table(view_ref)
     view.view_query = sql

@@ -47,9 +47,7 @@ class BQBulkSink(object):
     def __init__(
             self,
             table_id: str,
-            access_config: _bigquery_sink.AccessConfig,
-            dataset_id: str = None,
-            project_id: str = None,
+            options: _bigquery_sink.Options,
             table_partitioning: dict = None,
             table_partition_date: _datetime.date = None,
             table_description: str = None,
@@ -57,13 +55,11 @@ class BQBulkSink(object):
             labels: dict = None,
             write_disposition: WriteDisposition = WriteDisposition.APPEND,
             auto_update_table_schema: bool = False,
-            bq_location: str = None,
-            now: _datetime.datetime = None
     ):
         """
         :param table_id: the table id where the data should be stored. This should not contain project_id or dataset_id
-        :param dataset_id: the dataset id where the destination table is located, you can overwrite the dataset_id provided from the access_config
-        :param project_id: the project id where the destination table is located, you can overwrite the project_id provided from the access_config
+        :param dataset_id: the dataset id where the destination table is located, you can overwrite the dataset_id provided from the options
+        :param project_id: the project id where the destination table is located, you can overwrite the project_id provided from the options
         :param table_partitioning: BigQuery table partitioning information, use `create_table_date_partitioning` method to create correct values
         :param table_partition_date: If you want to (over-) write a specific partition, you can specify a date(time) object. This only works for date partitioned tables. If you pass in a datetime object, it will still replace the entire DATE partition.
         :param table_description: You can provide a description of the table.
@@ -71,13 +67,11 @@ class BQBulkSink(object):
         :param labels: A dictionary of labels that should be attached to the table
         :param write_disposition: Specify whether you want to only write if the table is empty or append or replace table content
         :param auto_update_table_schema: Should the schema be automatically updated when uploading content?
-        :param bq_location: The location where the data should be hosted (only relevant if table does not exist, yet). By default will be taken from access_config or defaults to 'US'
-        :param now: To make it easier to find temp files and job ids, we put a reference to the current time into the ids
         """
 
-        self.access_config = access_config
-        self.project_id = project_id or access_config.project_id
-        self.dataset_id = dataset_id or access_config.dataset_id
+        self.options = options
+        self.project_id = options.project_id
+        self.dataset_id = options.dataset_id
         self.table_id = table_id
         self.table_ref = '{}.{}.{}'.format(self.project_id, self.dataset_id, self.table_id)
         self.table_partitioning = table_partitioning
@@ -88,12 +82,13 @@ class BQBulkSink(object):
         self.labels = labels or {}
         self.write_disposition = write_disposition.value
         self.auto_update_table_schema = auto_update_table_schema
-        self.bq_location = bq_location or access_config.bq_location or 'US'
-        self.bigquery = access_config.get_bigquery_client()
-        self.storage = access_config.get_storage_client()
-        self.temp_bucket_name = access_config.temp_bucket_name
-        self.temp_bucket_root_path = access_config.temp_bucket_root_path
-        self.now = now or _datetime.datetime.utcnow()
+        self.bq_location = options.bq_location or 'US'
+        self.bigquery = options.get_bigquery_client()
+        self.storage = options.get_storage_client()
+        self.temp_bucket_name = options.temp_bucket_name
+        self.temp_bucket_root_path = options.temp_bucket_root_path
+        self.now = options.now or _datetime.datetime.utcnow()
+        self.correlation_id = options.correlation_id
 
     @_contextlib.contextmanager
     def open(self):
@@ -146,17 +141,18 @@ class BQBulkSink(object):
             name=name,
             sql=sql_template,
             dataset_id=self.dataset_id,
-            access_config=self.access_config
+            options=self.options
         )
 
     def _generate_job_id(self):
-        job_id = '{runner}--{project}--{dataset}--{table}--{date}-{time}-{random}'.format(
+        job_id = '{runner}--{project}--{dataset}--{table}--{date}-{time}-{correlation_id}-{random}'.format(
             runner='lh-dwh-etl',
             project=self.project_id,
             dataset=self.dataset_id,
             table=self.table_id,
             date=self.now.strftime('%Y-%m-%d'),
             time=self.now.strftime('%H-%M-%S'),
+            correlation_id=self.correlation_id,
             random=_generate_id.generate_id(),
         )
         return job_id
@@ -191,13 +187,14 @@ class BQBulkSink(object):
         else:
             root_path = ''
 
-        file_path = '{root_path}{project}/{dataset}/{table}/{date}/{time}-{random}.nljson'.format(
+        file_path = '{root_path}{project}/{dataset}/{table}/{date}/{time}-{correlation}-{random}.nljson'.format(
             root_path=root_path,
             project=self.project_id,
             dataset=self.dataset_id,
             table=self.table_id,
             date=self.now.strftime('%Y-%m-%d'),
             time=self.now.strftime('%H-%M-%S'),
+            correlation=self.correlation_id,
             random=_generate_id.generate_id(),
         )
 

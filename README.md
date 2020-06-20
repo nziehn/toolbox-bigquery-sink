@@ -13,7 +13,7 @@ from toolbox.bigquery_sink import SchemaField as _SF
 from toolbox.bigquery_sink import FieldType as _FT
 from toolbox.bigquery_sink import bulk_sink as _bulk_sink
 
-access_config = _bigquery_sink.AccessConfig(
+options = _bigquery_sink.Options(
     project_id='YOUR_GOOGLE_CLOUD_PROJECT_ID',  # you can provide a default project_id when uploading data
     dataset_id='YOUR_DATASET_ID',  # you can provide a default dataset_id when uploading data
     temp_bucket_name='YOUR_GOOGLE_CLOUD_BUCKET_NAME',  # when uploading bulk data need a temp storage bucket
@@ -24,7 +24,7 @@ access_config = _bigquery_sink.AccessConfig(
 # define the sink
 sink = _bulk_sink.BQBulkSink(
     table_id='YOUR_TABLE_NAME',  # specify a table name
-    access_config=access_config,  
+    options=options,  
     schema=[  # if you upload new data, the schema is mandatory 
         _SF(name='asd', field_type=_FT.STRING)
     ]
