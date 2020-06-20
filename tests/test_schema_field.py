@@ -93,15 +93,93 @@ def test_extract_repeated_unroll():
         mode=_bs.FieldMode.REPEATED,
     )
     value = field.extract(
+        row={"outter": [{"level1": [1, 2]}, {"level1": [3, 4]}, {"level1": [5, 6]},]}
+    )
+    _tools.assert_list_equal(value, [1, 2, 3, 4, 5, 6])
+
+
+def test_extract_repeated_unroll_with_structs():
+    field = _bs.SchemaField(
+        name="repeated",
+        field_type=_bs.FieldType.STRUCT,
+        source_path=[
+            "outter",
+            _bs.SourcePathElements.LIST_INDEX,
+            "level1",
+            _bs.SourcePathElements.LIST_INDEX,
+        ],
+        fields=[
+            _bs.SchemaField(
+                name="value", field_type=_bs.FieldType.INTEGER, source_path=[],
+            )
+        ],
+        mode=_bs.FieldMode.REPEATED,
+    )
+    value = field.extract(
+        row={"outter": [{"level1": [1, 2]}, {"level1": [3, 4]}, {"level1": [5, 6]},]}
+    )
+    _tools.assert_list_equal(
+        value,
+        [
+            {"value": 1},
+            {"value": 2},
+            {"value": 3},
+            {"value": 4},
+            {"value": 5},
+            {"value": 6},
+        ],
+    )
+
+
+def test_extract_repeated_unroll_with_struct_root_reference():
+    field = _bs.SchemaField(
+        name="repeated",
+        field_type=_bs.FieldType.STRUCT,
+        source_path=[
+            "outter",
+            _bs.SourcePathElements.LIST_INDEX,
+            "level1",
+            _bs.SourcePathElements.LIST_INDEX,
+        ],
+        fields=[
+            _bs.SchemaField(
+                name="value",
+                field_type=_bs.FieldType.INTEGER,
+                source_path=[],
+            ),
+            _bs.SchemaField(
+                name="other",
+                field_type=_bs.FieldType.INTEGER,
+                source_path=[
+                    _bs.SourcePathElements.ROOT,
+                    "outter",
+                    _bs.SourcePathElements.LIST_INDEX,
+                    "other"
+                ],
+            )
+        ],
+        mode=_bs.FieldMode.REPEATED,
+    )
+    value = field.extract(
         row={
             "outter": [
-                {"level1": [1, 2]},
-                {"level1": [3, 4]},
-                {"level1": [5, 6]},
+                {"level1": [1, 2], "other": 20},
+                {"level1": [3, 4], "other": 30},
+                {"level1": [5, 6], "other": 40},
             ]
         }
     )
-    _tools.assert_list_equal(value, [1, 2, 3, 4, 5, 6])
+    _tools.assert_list_equal(
+        value,
+        [
+            {"value": 1, "other": 20},
+            {"value": 2, "other": 20},
+            {"value": 3, "other": 30},
+            {"value": 4, "other": 30},
+            {"value": 5, "other": 40},
+            {"value": 6, "other": 40},
+        ],
+    )
 
 
 def test_extract_repeated_deep():
@@ -224,4 +302,4 @@ def test_ensure_type_boolean():
 
 
 if __name__ == "__main__":
-    test_extract_repeated_unroll()
+    test_extract_repeated_unroll_with_struct_root_reference()

@@ -204,67 +204,12 @@ class SchemaField(object):
             if self.source_fn:
                 return self.source_fn(row, path)
 
-            if self.source_path is not None:
-                if len(self.source_path) and self.source_path[0] == SourcePathElements.ROOT:
-                    source_path = self.source_path[1:]
-                else:
-                    source_path = path + self.source_path
-            else:
-                source_path = path + [self.name]
+            source_path = self._create_source_path(path=path)
 
             if self.mode == FieldMode.REPEATED:
-                if SourcePathElements.LIST_INDEX in source_path:
-                    list_index_position = source_path.index(SourcePathElements.LIST_INDEX)
-                    path_to = source_path[:list_index_position]
-                    remaining_path = source_path[list_index_position + 1:]
-                    inner_list = _nest.get(row, path_to)
-                    next_inner_list = []
-                    if SourcePathElements.LIST_INDEX in remaining_path:
-                        for idx in range(len(inner_list)):
-                            next_inner_list += self.replace(source_path=remaining_path)._extract_inner(
-                                row,
-                                path=path_to + [idx],
-                                should_ensure_type=should_ensure_type,
-                                should_fire_exception=should_fire_exception,
-                            )
-                        return next_inner_list
-                    else:
-                        for idx in range(len(inner_list)):
-                            next_inner_list.append(
-                                self.replace(mode=FieldMode.NULLABLE, source_path=remaining_path)._extract_inner(
-                                    row,
-                                    path=path_to + [idx],
-                                    should_ensure_type=should_ensure_type,
-                                    should_fire_exception=should_fire_exception,
-                                )
-                            )
-                        return next_inner_list
-
-                inner_list = _nest.get(row, source_path)
-                if not inner_list or not isinstance(inner_list, list):
-                    return []
-
-                if self.field_type == FieldType.STRUCT:
-                    value = [
-                        {
-                            field.name: field._extract_inner(
-                                row,
-                                path=source_path + [idx],
-                                should_ensure_type=should_ensure_type,
-                                should_fire_exception=should_fire_exception,
-                            )
-                            for field in self.fields
-                        }
-                        for idx in range(len(inner_list))
-                    ]
-                else:
-                    value = []
-                    for idx, inner_value in enumerate(inner_list):
-                        if should_ensure_type:
-                            value.append(self._ensure_type(value=inner_value))
-                        else:
-                            value.append(inner_value)
-                return value
+                return self._extract_inner_repeated(
+                    row, source_path, should_ensure_type, should_fire_exception
+                )
 
             if self.field_type == FieldType.STRUCT:
                 value = {
@@ -291,6 +236,94 @@ class SchemaField(object):
                     raise
             else:
                 raise
+
+    def _create_source_path(self, path):
+        if self.source_path is not None:
+            if len(self.source_path) and self.source_path[0] == SourcePathElements.ROOT:
+                source_path = self.source_path[1:]
+
+                # replace LIST_INDEX elements in source path, if they follow the same path!
+                for idx, (source_path_item, path_item) in enumerate(
+                    list(zip(source_path, path))
+                ):
+                    if source_path_item == path:
+                        continue
+                    if source_path_item == SourcePathElements.LIST_INDEX:
+                        source_path[idx] = path_item
+                    if source_path_item != path_item:
+                        break
+            else:
+                source_path = path + self.source_path
+        else:
+            source_path = path + [self.name]
+
+        return source_path
+
+    def _extract_inner_repeated(
+        self, row, source_path, should_ensure_type, should_fire_exception
+    ):
+        if SourcePathElements.LIST_INDEX in source_path:
+            # if there is a LIST_INDEX value in the path,
+            # split up the path and deal with the remainder recursively
+            list_index_position = source_path.index(SourcePathElements.LIST_INDEX)
+            path_to = source_path[:list_index_position]
+            remaining_path = source_path[list_index_position + 1 :]
+            inner_list = _nest.get(row, path_to)
+            next_inner_list = []
+
+            if SourcePathElements.LIST_INDEX in remaining_path:
+                # if in the remainder is another LIST_INDEX, we expect to get a list back
+                for idx in range(len(inner_list)):
+                    next_inner_list += self.replace(
+                        source_path=remaining_path
+                    )._extract_inner(
+                        row,
+                        path=path_to + [idx],
+                        should_ensure_type=should_ensure_type,
+                        should_fire_exception=should_fire_exception,
+                    )
+                return next_inner_list
+            else:
+                # if there is no other LIST_INDEX remaining, we expect to get back individual values
+                # therefore we remove the field mode REPEATED in the recursive call
+                for idx in range(len(inner_list)):
+                    next_inner_list.append(
+                        self.replace(
+                            mode=FieldMode.NULLABLE, source_path=remaining_path
+                        )._extract_inner(
+                            row,
+                            path=path_to + [idx],
+                            should_ensure_type=should_ensure_type,
+                            should_fire_exception=should_fire_exception,
+                        )
+                    )
+                return next_inner_list
+
+        inner_list = _nest.get(row, source_path)
+        if not inner_list or not isinstance(inner_list, list):
+            return []
+
+        if self.field_type == FieldType.STRUCT:
+            value = [
+                {
+                    field.name: field._extract_inner(
+                        row,
+                        path=source_path + [idx],
+                        should_ensure_type=should_ensure_type,
+                        should_fire_exception=should_fire_exception,
+                    )
+                    for field in self.fields
+                }
+                for idx in range(len(inner_list))
+            ]
+        else:
+            value = []
+            for idx, inner_value in enumerate(inner_list):
+                if should_ensure_type:
+                    value.append(self._ensure_type(value=inner_value))
+                else:
+                    value.append(inner_value)
+        return value
 
     def _ensure_type(self, value):
         """
