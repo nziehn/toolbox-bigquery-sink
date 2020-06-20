@@ -413,20 +413,19 @@ class SchemaField(object):
         )
 
 
-def create_view(name: str, sql: str, options: Options, dataset_id: str = None):
+def create_view(name: str, query: str, options: Options):
     """
     Create a view inside bigquery
 
     :param name: The name of the view (corresponds to a table id)
-    :param sql: The SQL query that specifies the content of the vieww
-    :param dataset_id: You can override the default dataset from the options
+    :param query: The SQL query that specifies the content of the vieww
     :param options: The access config object that defines project_id and other common parameters
     """
     bigquery = options.get_bigquery_client()
-    view_ref = "{}.{}.{}".format(options.project_id, dataset_id, name)
+    view_ref = "{}.{}.{}".format(options.project_id, options.dataset_id, name)
 
     view = _bigquery.Table(view_ref)
-    view.view_query = sql
+    view.view_query = query
     return bigquery.create_table(view, exists_ok=True)
 
 
