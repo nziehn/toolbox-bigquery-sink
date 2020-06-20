@@ -49,13 +49,13 @@ class Options(object):
         self.correlation_id = correlation_id
         self.now = now
 
-    def get_bigquery_client(self):
-        return self._get_client(cls=_bigquery.Client,)
+    def get_bigquery_client(self, scopes=None):
+        return self._get_client(cls=_bigquery.Client, scopes=scopes)
 
     def get_storage_client(self):
         return self._get_client(cls=_storage.Client,)
 
-    def _get_client(self, cls):
+    def _get_client(self, cls, scopes=None):
         if self.service_account_credentials:
             project_id = self.service_account_credentials["project_id"]
         else:
@@ -64,6 +64,9 @@ class Options(object):
         credentials = _service_account.Credentials.from_service_account_info(
             self.service_account_credentials
         )
+        if scopes:
+            credentials.with_scopes(scopes=scopes)
+
         return cls(project=project_id, credentials=credentials)
 
     def replace(
@@ -433,6 +436,88 @@ def create_view(name: str, query: str, options: Options):
     view = _bigquery.Table(view_ref)
     view.view_query = query
     return bigquery.create_table(view, exists_ok=True)
+
+
+def check_and_update_labels(table, labels, bigquery):
+    """
+    Make sure the labels are up2date on the table
+    """
+
+    if labels and table.labels != labels:
+        new_labels = {
+            k: None  # make sure "old" labels are actually removed
+            for k in table.labels.keys()
+        }
+        new_labels.update(labels)
+        table.labels = new_labels
+        return bigquery.update_table(table=table, fields=["labels"])
+    return table
+
+
+def check_and_update_description(table, table_description, bigquery):
+    """
+    Make sure the description is up2date
+    """
+    if table.description != table_description:
+        table.description = table_description
+        return bigquery.update_table(table=table, fields=["description"])
+    return table
+
+
+def check_and_update_external_config(table, external_config, bigquery):
+    """
+    update the external config
+    """
+    if table.external_data_configuration != external_config:
+        table.external_data_configuration = external_config
+        return bigquery.update_table(table=table, fields=["external_data_configuration"])
+    return table
+
+
+def check_and_update_schema(table, schema, bigquery, auto_update_table_schema=True):
+    """
+    Make sure that the schema of table matches the one provided.
+    The ordering is NOT taken into account - changes in order will not be updated
+    """
+
+    if not schema:
+        return table
+
+    bq_schema = (
+        None if schema is None else [f.to_bq_field() for f in schema]
+    )
+
+    def extract_schema_fields(schema):
+        if not schema:
+            return None
+        return sorted(
+            [
+                (
+                    f.name.upper(),
+                    f.field_type.upper(),
+                    f.mode.upper(),
+                    f.description,
+                    extract_schema_fields(f.fields),
+                )
+                for f in schema
+            ]
+        )
+
+    current_schema_repr = extract_schema_fields(table.schema)
+    new_schema_repr = extract_schema_fields(bq_schema)
+    schema_up2date = current_schema_repr == new_schema_repr
+
+    if not schema_up2date:
+        if auto_update_table_schema:
+            table.schema = bq_schema
+            bigquery.update_table(table=table, fields=["schema"])
+            return table
+        else:
+            raise ValueError(
+                "Schema not up-to-date"
+            )
+
+    return table
 
 
 if __name__ == "__main__":

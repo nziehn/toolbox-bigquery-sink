@@ -180,9 +180,7 @@ class BQBulkSink(object):
             sql_template = sql_template.format(TABLE="`{}`".format(self.table_ref))
 
         return _bigquery_sink.create_view(
-            name=name,
-            query=sql_template,
-            options=options or self.options,
+            name=name, query=sql_template, options=options or self.options,
         )
 
     def _generate_job_id(self):
@@ -274,9 +272,20 @@ class BQBulkSink(object):
             )
         table = self.bigquery.create_table(table=table, exists_ok=exists_ok)
 
-        self._check_and_update_labels(table=table)
-        self._check_and_update_description(table=table)
-        self._check_and_update_schema(table=table)
+        _bigquery_sink.check_and_update_labels(
+            table=table, labels=self.labels, bigquery=self.bigquery
+        )
+        _bigquery_sink.check_and_update_schema(
+            table=table,
+            schema=self.schema,
+            bigquery=self.bigquery,
+            auto_update_table_schema=self.auto_update_table_schema,
+        )
+        _bigquery_sink.check_and_update_description(
+            table=table,
+            table_description=self.table_description,
+            bigquery=self.bigquery,
+        )
 
         if self.table_partition_date:
             table = _bigquery.Table(
@@ -287,65 +296,6 @@ class BQBulkSink(object):
             )
 
         return table
-
-    def _check_and_update_labels(self, table):
-        """
-        Make sure the labels are up2date on the table
-        """
-        if table.labels != self.labels:
-            labels = {
-                k: None  # make sure "old" labels are actually removed
-                for k in table.labels.keys()
-            }
-            labels.update(self.labels)
-            table.labels = labels
-            self.bigquery.update_table(table=table, fields=["labels"])
-
-    def _check_and_update_description(self, table):
-        """
-        Make sure the description is up2date
-        """
-        if table.description != self.table_description:
-            table.description = self.table_description
-            self.bigquery.update_table(table=table, fields=["description"])
-
-    def _check_and_update_schema(self, table):
-        """
-        Make sure that the schema of table matches the one provided.
-        The ordering is NOT taken into account - changes in order will not be updated
-        """
-
-        if not self.schema:
-            return
-
-        def extract_schema_fields(schema):
-            if not schema:
-                return None
-            return sorted(
-                [
-                    (
-                        f.name.upper(),
-                        f.field_type.upper(),
-                        f.mode.upper(),
-                        f.description,
-                        extract_schema_fields(f.fields),
-                    )
-                    for f in schema
-                ]
-            )
-
-        current_schema_repr = extract_schema_fields(table.schema)
-        new_schema_repr = extract_schema_fields(self.bq_schema)
-        if current_schema_repr != new_schema_repr:
-            if self.auto_update_table_schema:
-                table.schema = self.bq_schema
-                self.bigquery.update_table(table=table, fields=["schema"])
-            else:
-                raise ValueError(
-                    "Schema changed {}.{}.{}".format(
-                        self.project_id, self.dataset_id, self.table_id
-                    )
-                )
 
     def _load_bq_table_from_storage(self, storage_uri, table):
         """
@@ -374,9 +324,7 @@ def query_write_to_table(
     write_disposition=WriteDisposition.IF_EMPTY,
 ):
     materialized_sink = BQBulkSink(
-        table_id=name,
-        write_disposition=write_disposition,
-        options=options,
+        table_id=name, write_disposition=write_disposition, options=options,
     )
     materialized_sink.from_query(query=query)
     return materialized_sink.rows_written
