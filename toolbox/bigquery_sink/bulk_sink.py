@@ -54,7 +54,7 @@ class BQBulkSink(object):
         table_partition_date: _datetime.date = None,
         table_description: str = None,
         schema: _typing.List[_bigquery_sink.SchemaField] = None,
-        write_disposition: WriteDisposition = WriteDisposition.APPEND,
+        write_disposition: WriteDisposition = WriteDisposition.IF_EMPTY,
         auto_update_table_schema: bool = False,
     ):
         """
@@ -362,6 +362,21 @@ class BQBulkSink(object):
             job_id=self._generate_job_id(),
         )
         load_job.result()  # Waits for table load to complete.
+
+
+def query_write_to_table(
+    name,
+    query,
+    options: _bigquery_sink.Options,
+    write_disposition=WriteDisposition.IF_EMPTY,
+):
+    materialized_sink = BQBulkSink(
+        table_id=name,
+        write_disposition=write_disposition,
+        options=options,
+    )
+    materialized_sink.from_query(query=query)
+    return materialized_sink.rows_written
 
 
 if __name__ == "__main__":
