@@ -55,6 +55,55 @@ def test_extract_repeated():
     _tools.assert_list_equal(value, ["a", "b", "c"])
 
 
+def test_extract_repeated_deep_skip():
+    field = _bs.SchemaField(
+        name="repeated",
+        field_type=_bs.FieldType.INTEGER,
+        source_path=[
+            "outter",
+            _bs.SourcePathElements.LIST_INDEX,
+            "level1",
+            _bs.SourcePathElements.LIST_INDEX,
+            "level2",
+        ],
+        mode=_bs.FieldMode.REPEATED,
+    )
+    value = field.extract(
+        row={
+            "outter": [
+                {"level1": [{"level2": 1}]},
+                {"level1": [{"level2": 2}]},
+                {"level1": [{"level2": 3}]},
+            ]
+        }
+    )
+    _tools.assert_list_equal(value, [1, 2, 3])
+
+
+def test_extract_repeated_unroll():
+    field = _bs.SchemaField(
+        name="repeated",
+        field_type=_bs.FieldType.INTEGER,
+        source_path=[
+            "outter",
+            _bs.SourcePathElements.LIST_INDEX,
+            "level1",
+            _bs.SourcePathElements.LIST_INDEX,
+        ],
+        mode=_bs.FieldMode.REPEATED,
+    )
+    value = field.extract(
+        row={
+            "outter": [
+                {"level1": [1, 2]},
+                {"level1": [3, 4]},
+                {"level1": [5, 6]},
+            ]
+        }
+    )
+    _tools.assert_list_equal(value, [1, 2, 3, 4, 5, 6])
+
+
 def test_extract_repeated_deep():
     field = _bs.SchemaField(
         name="repeated",
@@ -70,9 +119,7 @@ def test_extract_repeated_deep():
         mode=_bs.FieldMode.REPEATED,
     )
     value = field.extract(
-        row={
-            "world": [{"inner_value": 1}, {"inner_value": 2}, {"inner_value": 3}]
-        }
+        row={"world": [{"inner_value": 1}, {"inner_value": 2}, {"inner_value": 3}]}
     )
     _tools.assert_list_equal(value, [{"inner": 1}, {"inner": 2}, {"inner": 3}])
 
@@ -95,7 +142,9 @@ def test_extract_root_reference():
         source_path=["hello"],
         fields=[
             _bs.SchemaField(
-                name="foo", field_type=_bs.FieldType.STRING, source_path=[_bs.SourcePathElements.ROOT, "foo"]
+                name="foo",
+                field_type=_bs.FieldType.STRING,
+                source_path=[_bs.SourcePathElements.ROOT, "foo"],
             )
         ],
     )
@@ -104,11 +153,10 @@ def test_extract_root_reference():
 
 
 def test_extract_should_fire_exception():
-    field = _bs.SchemaField(
-        name="hello",
-        field_type=_bs.FieldType.INTEGER,
+    field = _bs.SchemaField(name="hello", field_type=_bs.FieldType.INTEGER,)
+    value = field.extract(
+        row={"hello": "world"}, should_fire_exception=lambda *x: False
     )
-    value = field.extract(row={"hello": "world"}, should_fire_exception=lambda *x: False)
     _tools.assert_is_none(value)
 
     with _tools.assert_raises(ValueError):
@@ -130,41 +178,29 @@ def test_extract_repeated_not_ensured_type():
 
 
 def test_ensure_type_integer():
-    field = _bs.SchemaField(
-        name="int",
-        field_type=_bs.FieldType.INTEGER,
-    )
+    field = _bs.SchemaField(name="int", field_type=_bs.FieldType.INTEGER,)
     with _tools.assert_raises(ValueError):
-        field._ensure_type(value='a')
+        field._ensure_type(value="a")
 
-    _tools.assert_equal(field._ensure_type(value='1'), 1)
+    _tools.assert_equal(field._ensure_type(value="1"), 1)
 
 
 def test_ensure_type_float():
-    field = _bs.SchemaField(
-        name="float",
-        field_type=_bs.FieldType.FLOAT,
-    )
+    field = _bs.SchemaField(name="float", field_type=_bs.FieldType.FLOAT,)
     with _tools.assert_raises(ValueError):
-        field._ensure_type(value='a')
+        field._ensure_type(value="a")
 
-    _tools.assert_equal(field._ensure_type(value='1.2'), 1.2)
+    _tools.assert_equal(field._ensure_type(value="1.2"), 1.2)
 
 
 def test_ensure_type_string():
-    field = _bs.SchemaField(
-        name="str",
-        field_type=_bs.FieldType.STRING,
-    )
+    field = _bs.SchemaField(name="str", field_type=_bs.FieldType.STRING,)
 
-    _tools.assert_equal(field._ensure_type(value=1), '1')
+    _tools.assert_equal(field._ensure_type(value=1), "1")
 
 
 def test_ensure_type_date():
-    field = _bs.SchemaField(
-        name="date",
-        field_type=_bs.FieldType.DATE,
-    )
+    field = _bs.SchemaField(name="date", field_type=_bs.FieldType.DATE,)
     now = _datetime.datetime.utcnow()
     today = now.date()
 
@@ -173,23 +209,19 @@ def test_ensure_type_date():
 
 
 def test_ensure_type_timestamp():
-    field = _bs.SchemaField(
-        name="date",
-        field_type=_bs.FieldType.TIMESTAMP,
-    )
+    field = _bs.SchemaField(name="date", field_type=_bs.FieldType.TIMESTAMP,)
     now = _datetime.datetime.utcnow()
     _tools.assert_equal(field._ensure_type(value=now), now)
-    _tools.assert_equal(field._ensure_type(value=300), _datetime.datetime(1970, 1, 1, 0, 5, 0))
+    _tools.assert_equal(
+        field._ensure_type(value=300), _datetime.datetime(1970, 1, 1, 0, 5, 0)
+    )
 
 
 def test_ensure_type_boolean():
-    field = _bs.SchemaField(
-        name="bool",
-        field_type=_bs.FieldType.BOOLEAN,
-    )
+    field = _bs.SchemaField(name="bool", field_type=_bs.FieldType.BOOLEAN,)
     _tools.assert_equal(field._ensure_type(value=1), True)
     _tools.assert_equal(field._ensure_type(value=True), True)
 
 
 if __name__ == "__main__":
-    test_extract_repeated_missing()
+    test_extract_repeated_unroll()

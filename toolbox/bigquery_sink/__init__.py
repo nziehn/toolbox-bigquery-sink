@@ -111,9 +111,7 @@ class SourcePathElements(_enum.Enum):
     """
 
     ROOT = object()  # make the path absolute and not relative
-    LIST_INDEX = (
-        object()
-    )  # reference a dynamic list index, when referencing sourch paths within a repeated field
+    LIST_INDEX = object()  # mark that you're accessing a list within the source path
 
 
 class _MissingToken(object):
@@ -206,8 +204,8 @@ class SchemaField(object):
             if self.source_fn:
                 return self.source_fn(row, path)
 
-            if self.source_path:
-                if self.source_path[0] == SourcePathElements.ROOT:
+            if self.source_path is not None:
+                if len(self.source_path) and self.source_path[0] == SourcePathElements.ROOT:
                     source_path = self.source_path[1:]
                 else:
                     source_path = path + self.source_path
@@ -215,6 +213,33 @@ class SchemaField(object):
                 source_path = path + [self.name]
 
             if self.mode == FieldMode.REPEATED:
+                if SourcePathElements.LIST_INDEX in source_path:
+                    list_index_position = source_path.index(SourcePathElements.LIST_INDEX)
+                    path_to = source_path[:list_index_position]
+                    remaining_path = source_path[list_index_position + 1:]
+                    inner_list = _nest.get(row, path_to)
+                    next_inner_list = []
+                    if SourcePathElements.LIST_INDEX in remaining_path:
+                        for idx in range(len(inner_list)):
+                            next_inner_list += self.replace(source_path=remaining_path)._extract_inner(
+                                row,
+                                path=path_to + [idx],
+                                should_ensure_type=should_ensure_type,
+                                should_fire_exception=should_fire_exception,
+                            )
+                        return next_inner_list
+                    else:
+                        for idx in range(len(inner_list)):
+                            next_inner_list.append(
+                                self.replace(mode=FieldMode.NULLABLE, source_path=remaining_path)._extract_inner(
+                                    row,
+                                    path=path_to + [idx],
+                                    should_ensure_type=should_ensure_type,
+                                    should_fire_exception=should_fire_exception,
+                                )
+                            )
+                        return next_inner_list
+
                 inner_list = _nest.get(row, source_path)
                 if not inner_list or not isinstance(inner_list, list):
                     return []
@@ -327,13 +352,13 @@ class SchemaField(object):
         :param mode: pick from NULLABLE, REQUIRED, REPEATED (view bigquery docs for meaning)
         """
         return SchemaField(
-            name=name or self.name,
-            field_type=field_type or self.field_type,
-            description=description or self.description,
-            source_path=source_path or self.source_path,
-            source_fn=source_fn or self.source_fn,
-            fields=fields or self.fields,
-            mode=mode or self.mode,
+            name=name if name is not None else self.name,
+            field_type=field_type if field_type is not None else self.field_type,
+            description=description if description is not None else self.description,
+            source_path=source_path if source_path is not None else self.source_path,
+            source_fn=source_fn if source_fn is not None else self.source_fn,
+            fields=fields if fields is not None else self.fields,
+            mode=mode if mode is not None else self.mode,
         )
 
 
