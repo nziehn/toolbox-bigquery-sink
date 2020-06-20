@@ -315,6 +315,9 @@ class BQBulkSink(object):
         The ordering is NOT taken into account - changes in order will not be updated
         """
 
+        if not self.schema:
+            return
+
         def extract_schema_fields(schema):
             if not schema:
                 return None
