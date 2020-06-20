@@ -54,7 +54,6 @@ class BQBulkSink(object):
         table_partition_date: _datetime.date = None,
         table_description: str = None,
         schema: _typing.List[_bigquery_sink.SchemaField] = None,
-        labels: dict = None,
         write_disposition: WriteDisposition = WriteDisposition.APPEND,
         auto_update_table_schema: bool = False,
     ):
@@ -66,7 +65,6 @@ class BQBulkSink(object):
         :param table_partition_date: If you want to (over-) write a specific partition, you can specify a date(time) object. This only works for date partitioned tables. If you pass in a datetime object, it will still replace the entire DATE partition.
         :param table_description: You can provide a description of the table.
         :param schema: The schema of the table
-        :param labels: A dictionary of labels that should be attached to the table
         :param write_disposition: Specify whether you want to only write if the table is empty or append or replace table content
         :param auto_update_table_schema: Should the schema be automatically updated when uploading content?
         """
@@ -85,7 +83,7 @@ class BQBulkSink(object):
         self.bq_schema = (
             None if self.schema is None else [f.to_bq_field() for f in self.schema]
         )
-        self.labels = labels or {}
+        self.labels = options.labels or {}
         self.write_disposition = write_disposition.value
         self.auto_update_table_schema = auto_update_table_schema
         self.bq_location = options.bq_location or "US"

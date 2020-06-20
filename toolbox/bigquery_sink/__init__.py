@@ -20,6 +20,7 @@ class Options(object):
         bq_location: str = None,
         correlation_id: str = None,
         now: _datetime.datetime = None,
+        labels: dict = None,
     ):
         """
         Reduce copy paste code: create an access config once and reuse it for multiple sinks
@@ -31,6 +32,7 @@ class Options(object):
         :param bq_location: The location where the data should be hosted (only relevant if table does not exist, yet).
         :param correlation_id: (optional) identifier that allows finding associated objects in microservice architecture
         :param now: (optional) allows trace passed time since a process was originally started
+        :param labels: A dictionary of labels that should be attached to tables and other resources
         """
         self.project_id = project_id
         self.dataset_id = dataset_id
@@ -38,6 +40,7 @@ class Options(object):
         self.temp_bucket_root_path = temp_bucket_root_path
         self.service_account_credentials = service_account_credentials
         self.bq_location = bq_location
+        self.labels = labels
 
         if correlation_id:
             if not _re.match(r'[a-z]+', correlation_id):
@@ -73,6 +76,7 @@ class Options(object):
         bq_location: str = None,
         correlation_id: str = None,
         now: _datetime.datetime = None,
+        labels: dict = None,
     ):
         """
         Return an access config with the same values but replacing the values that are not None
@@ -84,6 +88,7 @@ class Options(object):
         :param bq_location: The location where the data should be hosted (only relevant if table does not exist, yet).
         :param correlation_id: (optional) identifier that allows finding associated objects in microservice architecture
         :param now: (optional) allows trace passed time since a process was originally started
+        :param labels: A dictionary of labels that should be attached to tables and other resources
         :return: A copy of the access config after replacing the provided fields
         """
         return Options(
@@ -96,6 +101,7 @@ class Options(object):
             bq_location=bq_location or self.bq_location,
             correlation_id=correlation_id or self.correlation_id,
             now=now or self.now,
+            labels=labels,
         )
 
 
