@@ -107,7 +107,7 @@ class Options(object):
             bq_location=bq_location or self.bq_location,
             correlation_id=correlation_id or self.correlation_id,
             now=now or self.now,
-            labels=labels,
+            labels=labels or self.labels,
         )
 
 
