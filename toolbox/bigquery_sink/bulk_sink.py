@@ -275,16 +275,16 @@ class BQBulkSink(object):
             )
         table = self.bigquery.create_table(table=table, exists_ok=exists_ok)
 
-        _bigquery_sink.check_and_update_labels(
+        table = _bigquery_sink.check_and_update_labels(
             table=table, labels=self.labels, bigquery=self.bigquery
         )
-        _bigquery_sink.check_and_update_schema(
+        table = _bigquery_sink.check_and_update_schema(
             table=table,
             schema=self.schema,
             bigquery=self.bigquery,
             auto_update_table_schema=self.auto_update_table_schema,
         )
-        _bigquery_sink.check_and_update_description(
+        table = _bigquery_sink.check_and_update_description(
             table=table,
             table_description=self.table_description,
             bigquery=self.bigquery,

@@ -448,6 +448,10 @@ def create_view(name: str, query: str, options: Options, description: str = None
     view = _bigquery.Table(view_ref)
     view.view_query = query
     table = bigquery.create_table(view, exists_ok=True)
+    if table.view_query != query:
+        table.view_query = query
+        table = bigquery.update_table(table=table, fields=["view_query"])
+
     if options.labels:
         table = check_and_update_labels(
             table=table, labels=options.labels, bigquery=bigquery
