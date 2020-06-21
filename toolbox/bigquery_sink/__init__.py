@@ -3,6 +3,7 @@ import enum as _enum
 import typing as _typing
 import datetime as _datetime
 import re as _re
+import distutils.util as _distutils_util
 from google.cloud import bigquery as _bigquery
 from google.cloud import storage as _storage
 from google.oauth2 import service_account as _service_account
@@ -43,8 +44,10 @@ class Options(object):
         self.labels = labels
 
         if correlation_id:
-            if not _re.match(r'[a-z]+', correlation_id):
-                raise ValueError('Correlation id must be sequence of lower case characters!')
+            if not _re.match(r"[a-z]+", correlation_id):
+                raise ValueError(
+                    "Correlation id must be sequence of lower case characters!"
+                )
 
         self.correlation_id = correlation_id
         self.now = now
@@ -183,6 +186,11 @@ class SchemaField(object):
         self.source_fn = source_fn
         self.fields = fields
         self.mode = mode or FieldMode.NULLABLE
+
+    def __str__(self):
+        return "<Field:{name} {type} {mode}>".format(
+            name=self.name, type=self.field_type.name, mode=self.mode.name
+        )
 
     def to_bq_field(self):
         """
@@ -365,6 +373,9 @@ class SchemaField(object):
         if isinstance(value, int) and self.field_type == FieldType.BOOLEAN:
             value = value != 0
 
+        if isinstance(value, str) and self.field_type == FieldType.BOOLEAN:
+            value = _distutils_util.strtobool(value)
+
         if isinstance(value, _datetime.datetime) and self.field_type == FieldType.DATE:
             value = value.date()
 
@@ -470,7 +481,9 @@ def check_and_update_external_config(table, external_config, bigquery):
     """
     if table.external_data_configuration != external_config:
         table.external_data_configuration = external_config
-        return bigquery.update_table(table=table, fields=["external_data_configuration"])
+        return bigquery.update_table(
+            table=table, fields=["external_data_configuration"]
+        )
     return table
 
 
@@ -483,9 +496,7 @@ def check_and_update_schema(table, schema, bigquery, auto_update_table_schema=Tr
     if not schema:
         return table
 
-    bq_schema = (
-        None if schema is None else [f.to_bq_field() for f in schema]
-    )
+    bq_schema = None if schema is None else [f.to_bq_field() for f in schema]
 
     def extract_schema_fields(schema):
         if not schema:
@@ -513,9 +524,7 @@ def check_and_update_schema(table, schema, bigquery, auto_update_table_schema=Tr
             bigquery.update_table(table=table, fields=["schema"])
             return table
         else:
-            raise ValueError(
-                "Schema not up-to-date"
-            )
+            raise ValueError("Schema not up-to-date")
 
     return table
 
