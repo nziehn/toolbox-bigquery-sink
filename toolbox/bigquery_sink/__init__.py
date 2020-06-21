@@ -433,12 +433,13 @@ class SchemaField(object):
         )
 
 
-def create_view(name: str, query: str, options: Options):
+def create_view(name: str, query: str, options: Options, description: str = None):
     """
     Create a view inside bigquery
 
     :param name: The name of the view (corresponds to a table id)
-    :param query: The SQL query that specifies the content of the vieww
+    :param description: Description text of the view
+    :param query: The SQL query that specifies the content of the view
     :param options: The access config object that defines project_id and other common parameters
     """
     bigquery = options.get_bigquery_client()
@@ -446,7 +447,18 @@ def create_view(name: str, query: str, options: Options):
 
     view = _bigquery.Table(view_ref)
     view.view_query = query
-    return bigquery.create_table(view, exists_ok=True)
+    table = bigquery.create_table(view, exists_ok=True)
+    if options.labels:
+        table = check_and_update_labels(
+            table=table, labels=options.labels, bigquery=bigquery
+        )
+
+    if description:
+        table = check_and_update_description(
+            table=table, table_description=description, bigquery=bigquery
+        )
+
+    return table
 
 
 def check_and_update_labels(table, labels, bigquery):

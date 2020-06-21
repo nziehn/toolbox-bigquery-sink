@@ -175,12 +175,15 @@ class BQBulkSink(object):
         result = query_job.result()
         self.rows_written = result.total_rows
 
-    def create_related_view(self, name, sql_template, options=None):
+    def create_related_view(self, name, sql_template, options=None, description=None):
         if "{TABLE}" in sql_template:
             sql_template = sql_template.format(TABLE="`{}`".format(self.table_ref))
 
         return _bigquery_sink.create_view(
-            name=name, query=sql_template, options=options or self.options,
+            name=name,
+            description=description,
+            query=sql_template,
+            options=options or self.options,
         )
 
     def _generate_job_id(self):
