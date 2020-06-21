@@ -65,7 +65,7 @@ class Options(object):
             self.service_account_credentials
         )
         if scopes:
-            credentials.with_scopes(scopes=scopes)
+            credentials = credentials.with_scopes(scopes=scopes)
 
         return cls(project=project_id, credentials=credentials)
 

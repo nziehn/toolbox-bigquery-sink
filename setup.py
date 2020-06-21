@@ -14,7 +14,7 @@ dependencies = [
 
 setuptools.setup(
     name='toolbox-bigquery-sink',
-    version='0.0.17',
+    version='0.0.18',
     description='Tooling to write data to google bigquery',
     # long_description=long_description,
     # long_description_content_type='text/markdown',
