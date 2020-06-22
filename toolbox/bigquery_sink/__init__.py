@@ -379,6 +379,10 @@ class SchemaField(object):
         if isinstance(value, _datetime.datetime) and self.field_type == FieldType.DATE:
             value = value.date()
 
+        if isinstance(value, str) and self.field_type == FieldType.DATE:
+            match = _re.match(r'(\d{4})-(\d\d)-(\d\d)', value)
+            value = _datetime.date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
         if (
             not isinstance(value, str)
             and value is not None
