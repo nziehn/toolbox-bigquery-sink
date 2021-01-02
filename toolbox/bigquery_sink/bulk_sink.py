@@ -5,6 +5,7 @@ import decimal as _decimal
 import tempfile as _tempfile
 import contextlib as _contextlib
 import enum as _enum
+import gzip as _gzip
 import typing as _typing
 
 from google.cloud import bigquery as _bigquery
@@ -56,6 +57,7 @@ class BQBulkSink(object):
         schema: _typing.List[_bigquery_sink.SchemaField] = None,
         write_disposition: WriteDisposition = WriteDisposition.IF_EMPTY,
         auto_update_table_schema: bool = False,
+        compressed_upload: bool = False,
     ):
         """
         :param table_id: the table id where the data should be stored. This should not contain project_id or dataset_id
@@ -67,6 +69,7 @@ class BQBulkSink(object):
         :param schema: The schema of the table
         :param write_disposition: Specify whether you want to only write if the table is empty or append or replace table content
         :param auto_update_table_schema: Should the schema be automatically updated when uploading content?
+        :param compressed_upload: Allows compression upload to BigQuery via GZIP, if data volume is a concern. Generally this is slower than uncompressed uploads to BigQuery
         """
 
         self.options = options
@@ -93,6 +96,7 @@ class BQBulkSink(object):
         self.temp_bucket_root_path = options.temp_bucket_root_path
         self.now = options.now or _datetime.datetime.utcnow()
         self.correlation_id = options.correlation_id
+        self.compressed_upload = compressed_upload
         self.rows_written = 0
 
     @_contextlib.contextmanager
@@ -106,12 +110,22 @@ class BQBulkSink(object):
         :return: None
         """
         with _tempfile.TemporaryFile() as tmp_file:
+            if self.compressed_upload:
+                gzip_file = _gzip.GzipFile(mode='wb', fileobj=tmp_file, compresslevel=9)
 
-            def __write(row):
-                to_write = _json.dumps(row, default=self._json_default_fn) + "\n"
-                tmp_file.write(to_write.encode("utf-8"))
+                def __write(row):
+                    to_write = _json.dumps(row, default=self._json_default_fn) + "\n"
+                    gzip_file.write(to_write.encode("utf-8"))
 
-            yield __write
+                yield __write
+                gzip_file.close()
+            else:
+                def __write(row):
+                    to_write = _json.dumps(row, default=self._json_default_fn) + "\n"
+                    tmp_file.write(to_write.encode("utf-8"))
+                yield __write
+
+            tmp_file.seek(0)
 
             self._create_bq_dataset(exists_ok=True)  # ensures that dataset exists
             table = self._create_bq_table(exists_ok=True)  # ensures that table exists
@@ -229,15 +243,16 @@ class BQBulkSink(object):
         else:
             root_path = ""
 
-        file_path = "{root_path}{project}/{dataset}/{table}/{date}/{time}-{correlation}-{random}.nljson".format(
-            root_path=root_path,
-            project=self.project_id,
-            dataset=self.dataset_id,
-            table=self.table_id,
-            date=self.now.strftime("%Y-%m-%d"),
-            time=self.now.strftime("%H-%M-%S"),
-            correlation=self.correlation_id,
-            random=_generate_id.generate_id(),
+        file_path = "{rp}{p}/{ds}/{ta}/{d}/{ti}-{c}-{r}.nljson{e}".format(
+            rp=root_path,
+            p=self.project_id,
+            ds=self.dataset_id,
+            ta=self.table_id,
+            d=self.now.strftime("%Y-%m-%d"),
+            ti=self.now.strftime("%H-%M-%S"),
+            c=self.correlation_id,
+            r=_generate_id.generate_id(),
+            e='.gz' if self.compressed_upload else ''
         )
 
         blob = bucket.blob(file_path)
