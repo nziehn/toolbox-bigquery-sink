@@ -431,10 +431,11 @@ class SchemaField(object):
         :param field_type: Type of field, pick from any bigquery compatible type, e.g. STRING, TIMESTAMP, INTEGER, FLOAT
         :param description: Describe the content of this field
         :param source_path: Can be used to easily extract data from a data source row. Should be a list of keys
+        :param source_fn: Can be used to specify a lambda function to manually extract the object from the row
         :param fields: If the field_type is RECORD you can specify fields for the "sub document" of the record
         :param mode: pick from NULLABLE, REQUIRED, REPEATED (view bigquery docs for meaning)
         """
-        return self.__class__(
+        return SchemaField(
             name=name if name is not None else self.name,
             field_type=field_type if field_type is not None else self.field_type,
             description=description if description is not None else self.description,
