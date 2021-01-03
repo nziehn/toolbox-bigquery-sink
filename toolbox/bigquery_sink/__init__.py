@@ -14,14 +14,15 @@ class Options(object):
     def __init__(
         self,
         project_id: str,
-        dataset_id: str = None,
-        temp_bucket_name: str = None,
-        temp_bucket_root_path: str = None,
-        service_account_credentials: dict = None,
-        bq_location: str = None,
-        correlation_id: str = None,
-        now: _datetime.datetime = None,
-        labels: dict = None,
+        dataset_id: _typing.Optional[str] = None,
+        temp_bucket_name: _typing.Optional[str] = None,
+        temp_bucket_root_path: _typing.Optional[str] = None,
+        service_account_credentials: _typing.Optional[_typing.Dict] = None,
+        bq_location: _typing.Optional[str] = None,
+        correlation_id: _typing.Optional[str] = None,
+        now: _typing.Optional[_datetime.datetime] = None,
+        labels: _typing.Optional[_typing.Dict] = None,
+        bq_client_scopes: _typing.Optional[_typing.List] = None,
     ):
         """
         Reduce copy paste code: create an access config once and reuse it for multiple sinks
@@ -34,6 +35,7 @@ class Options(object):
         :param correlation_id: (optional) identifier that allows finding associated objects in microservice architecture
         :param now: (optional) allows trace passed time since a process was originally started
         :param labels: A dictionary of labels that should be attached to tables and other resources
+        :param bq_client_scopes: A list of client scopes for bigquery to override the default
         """
         self.project_id = project_id
         self.dataset_id = dataset_id
@@ -41,6 +43,7 @@ class Options(object):
         self.temp_bucket_root_path = temp_bucket_root_path
         self.service_account_credentials = service_account_credentials
         self.bq_location = bq_location
+        self.bq_client_scopes = bq_client_scopes
         self.labels = labels
 
         if correlation_id:
@@ -53,6 +56,8 @@ class Options(object):
         self.now = now
 
     def get_bigquery_client(self, scopes=None):
+        if scopes is None:
+            scopes = self.bq_client_scopes
         return self._get_client(cls=_bigquery.Client, scopes=scopes)
 
     def get_storage_client(self):
@@ -97,7 +102,7 @@ class Options(object):
         :param labels: A dictionary of labels that should be attached to tables and other resources
         :return: A copy of the access config after replacing the provided fields
         """
-        return Options(
+        return self.__class__(
             project_id=project_id or self.project_id,
             dataset_id=dataset_id or self.dataset_id,
             temp_bucket_name=temp_bucket_name or self.temp_bucket_name,
@@ -426,7 +431,7 @@ class SchemaField(object):
         :param fields: If the field_type is RECORD you can specify fields for the "sub document" of the record
         :param mode: pick from NULLABLE, REQUIRED, REPEATED (view bigquery docs for meaning)
         """
-        return SchemaField(
+        return self.__class__(
             name=name if name is not None else self.name,
             field_type=field_type if field_type is not None else self.field_type,
             description=description if description is not None else self.description,
