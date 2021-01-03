@@ -79,15 +79,16 @@ class Options(object):
 
     def replace(
         self,
-        project_id: str = None,
-        dataset_id: str = None,
-        temp_bucket_name: str = None,
-        temp_bucket_root_path: str = None,
-        service_account_credentials: dict = None,
-        bq_location: str = None,
-        correlation_id: str = None,
-        now: _datetime.datetime = None,
-        labels: dict = None,
+        project_id: _typing.Optional[str] = None,
+        dataset_id: _typing.Optional[str] = None,
+        temp_bucket_name: _typing.Optional[str] = None,
+        temp_bucket_root_path: _typing.Optional[str] = None,
+        service_account_credentials: _typing.Optional[_typing.Dict] = None,
+        bq_location: _typing.Optional[str] = None,
+        correlation_id: _typing.Optional[str] = None,
+        now: _typing.Optional[_datetime.datetime] = None,
+        labels: _typing.Optional[_typing.Dict] = None,
+        bq_client_scopes: _typing.Optional[_typing.List] = None,
     ):
         """
         Return an access config with the same values but replacing the values that are not None
@@ -100,6 +101,7 @@ class Options(object):
         :param correlation_id: (optional) identifier that allows finding associated objects in microservice architecture
         :param now: (optional) allows trace passed time since a process was originally started
         :param labels: A dictionary of labels that should be attached to tables and other resources
+        :param bq_client_scopes: A list of client scopes for bigquery to override the default
         :return: A copy of the access config after replacing the provided fields
         """
         return self.__class__(
@@ -113,6 +115,7 @@ class Options(object):
             correlation_id=correlation_id or self.correlation_id,
             now=now or self.now,
             labels=labels or self.labels,
+            bq_client_scopes=bq_client_scopes or self.bq_client_scopes,
         )
 
 
