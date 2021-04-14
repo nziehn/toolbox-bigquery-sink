@@ -188,6 +188,7 @@ class BQBulkSink(object):
         )
         result = query_job.result()
         self.rows_written = result.total_rows
+        return result
 
     def create_related_view(self, name, sql_template, options=None, description=None):
         if "{TABLE}" in sql_template:
