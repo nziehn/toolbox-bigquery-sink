@@ -172,7 +172,6 @@ class BQBulkSink(object):
 
     def from_query(self, query):
         self._create_bq_dataset(exists_ok=True)  # ensures that dataset exists
-        self._create_bq_table(exists_ok=True)  # ensures that table exists
         if self.table_partition_date:
             table_ref = "{}${:%Y%m%d}".format(self.table_ref, self.table_partition_date)
         else:
@@ -183,10 +182,21 @@ class BQBulkSink(object):
             destination=table_ref,
             write_disposition=self.write_disposition,
         )
+
+        if self.table_partitioning:
+            setattr(
+                job_config,
+                self.table_partitioning["type"],
+                self.table_partitioning["definition"],
+            )
+
         query_job = self.bigquery.query(
             query=query, job_config=job_config, job_id=self._generate_job_id(),
         )
         result = query_job.result()
+
+        table = _bigquery.Table(table_ref=self.table_ref, schema=self.bq_schema)
+        self._update_table(table=table)  # ensures that table information is up2date
         self.rows_written = result.total_rows
         return result
 
@@ -290,7 +300,19 @@ class BQBulkSink(object):
                 self.table_partitioning["definition"],
             )
         table = self.bigquery.create_table(table=table, exists_ok=exists_ok)
+        table = self._update_table(table=table)
 
+        if self.table_partition_date:
+            table = _bigquery.Table(
+                table_ref="{}${:%Y%m%d}".format(
+                    self.table_ref, self.table_partition_date
+                ),
+                schema=self.bq_schema,
+            )
+
+        return table
+
+    def _update_table(self, table):
         table = _bigquery_sink.check_and_update_labels(
             table=table, labels=self.labels, bigquery=self.bigquery
         )
@@ -305,15 +327,6 @@ class BQBulkSink(object):
             table_description=self.table_description,
             bigquery=self.bigquery,
         )
-
-        if self.table_partition_date:
-            table = _bigquery.Table(
-                table_ref="{}${:%Y%m%d}".format(
-                    self.table_ref, self.table_partition_date
-                ),
-                schema=self.bq_schema,
-            )
-
         return table
 
     def _load_bq_table_from_storage(self, storage_uri, table):
