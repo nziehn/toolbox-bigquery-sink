@@ -244,10 +244,11 @@ class SchemaField(object):
         """
         try:
             missing_token = _MissingToken()
-            if self.source_fn:
-                return self.source_fn(row, path)
 
             source_path = self._create_source_path(path=path)
+
+            if self.source_fn:
+                return self.source_fn(row, source_path)
 
             if self.mode == FieldMode.REPEATED:
                 return self._extract_inner_repeated(
