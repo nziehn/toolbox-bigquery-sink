@@ -528,6 +528,11 @@ def check_and_update_schema(table, schema, bigquery, auto_update_table_schema=Tr
 
     bq_schema = None if schema is None else [f.to_bq_field() for f in schema]
 
+    def extra_schema_field_type(field_type):
+        if field_type == 'RECORD':
+            return 'STRUCT'
+        return field_type
+
     def extract_schema_fields(schema):
         if not schema:
             return None
@@ -535,7 +540,7 @@ def check_and_update_schema(table, schema, bigquery, auto_update_table_schema=Tr
             [
                 (
                     f.name.upper(),
-                    f.field_type.upper(),
+                    extra_schema_field_type(f.field_type.upper()),
                     f.mode.upper(),
                     f.description,
                     extract_schema_fields(f.fields),
