@@ -170,7 +170,7 @@ class BQBulkSink(object):
         self.rows_written += rows_written
         return rows_written
 
-    def from_query(self, query):
+    def from_query(self, query, labels=None):
         self._create_bq_dataset(exists_ok=True)  # ensures that dataset exists
         if self.table_partition_date:
             table_ref = "{}${:%Y%m%d}".format(self.table_ref, self.table_partition_date)
@@ -182,6 +182,13 @@ class BQBulkSink(object):
             destination=table_ref,
             write_disposition=self.write_disposition,
         )
+
+        if labels:
+            setattr(
+                job_config,
+                'labels',
+                labels,
+            )
 
         if self.table_partitioning:
             setattr(
