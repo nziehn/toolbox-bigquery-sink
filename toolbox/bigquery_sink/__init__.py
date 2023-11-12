@@ -61,7 +61,9 @@ class Options(object):
         return self._get_client(cls=_bigquery.Client, scopes=scopes)
 
     def get_storage_client(self):
-        return self._get_client(cls=_storage.Client,)
+        return self._get_client(
+            cls=_storage.Client,
+        )
 
     def _get_client(self, cls, scopes=None):
         if self.service_account_credentials:
@@ -151,6 +153,17 @@ class SourcePathElements(_enum.Enum):
     ROOT = object()  # make the path absolute and not relative
     LIST_INDEX = object()  # mark that you're accessing a list within the source path
 
+    @classmethod
+    def find_list_index_with_key_value(cls, key, value):
+        def inner(row, path):
+            to_checks = _nest.get(row, path)
+            for idx, to_check in enumerate(to_checks):
+                if to_check.get(key) == value:
+                    return [idx]
+            return None
+
+        return inner
+
 
 class _MissingToken(object):
     """
@@ -173,7 +186,7 @@ class SchemaField(object):
         name: str,
         field_type: FieldType,
         description: str = None,
-        source_path: _typing.List[str] = None,
+        source_path: _typing.List[_typing.Any] = None,
         source_fn: source_fn_type = None,
         fields: _typing.List[SchemaField] = None,
         mode: FieldMode = None,
@@ -245,7 +258,7 @@ class SchemaField(object):
         try:
             missing_token = _MissingToken()
 
-            source_path = self._create_source_path(path=path)
+            source_path = self._create_source_path(path=path, row=row)
 
             if self.source_fn:
                 return self.source_fn(row, source_path)
@@ -281,7 +294,7 @@ class SchemaField(object):
             else:
                 raise
 
-    def _create_source_path(self, path):
+    def _create_source_path(self, path, row):
         if self.source_path is not None:
             if len(self.source_path) and self.source_path[0] == SourcePathElements.ROOT:
                 source_path = self.source_path[1:]
@@ -301,7 +314,14 @@ class SchemaField(object):
         else:
             source_path = path + [self.name]
 
-        return source_path
+        path_so_far = []
+        for element in source_path:
+            if isinstance(element, _typing.Callable):
+                path_so_far += element(row, path_so_far) or [None]
+            else:
+                path_so_far.append(element)
+
+        return path_so_far
 
     def _extract_inner_repeated(
         self, row, source_path, should_ensure_type, should_fire_exception
@@ -389,8 +409,10 @@ class SchemaField(object):
             value = value.date()
 
         if isinstance(value, str) and self.field_type == FieldType.DATE:
-            match = _re.match(r'(\d{4})-(\d\d)-(\d\d)', value)
-            value = _datetime.date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+            match = _re.match(r"(\d{4})-(\d\d)-(\d\d)", value)
+            value = _datetime.date(
+                int(match.group(1)), int(match.group(2)), int(match.group(3))
+            )
 
         if (
             not isinstance(value, str)
@@ -529,8 +551,8 @@ def check_and_update_schema(table, schema, bigquery, auto_update_table_schema=Tr
     bq_schema = None if schema is None else [f.to_bq_field() for f in schema]
 
     def extra_schema_field_type(field_type):
-        if field_type == 'RECORD':
-            return 'STRUCT'
+        if field_type == "RECORD":
+            return "STRUCT"
         return field_type
 
     def extract_schema_fields(schema):
@@ -565,4 +587,31 @@ def check_and_update_schema(table, schema, bigquery, auto_update_table_schema=Tr
 
 
 if __name__ == "__main__":
-    pass
+    sf = SchemaField(
+        name="x",
+        field_type=FieldType.RECORD,
+        fields=[
+            SchemaField(
+                name="b",
+                field_type=FieldType.STRING,
+                source_path=[
+                    SourcePathElements.find_list_index_with_key_value("hello", "l"),
+                    "world",
+                    "x",
+                ],
+            )
+        ],
+        source_path=["a"],
+    )
+
+    print(
+        sf.extract(
+            {
+                "a": [
+                    {"hello": "k", "world": {"x": "ich"}},
+                    {"hello": "l", "world": {"x": "du"}},
+                    {"hello": "m", "world": {"x": "es"}},
+                ]
+            }
+        )
+    )
