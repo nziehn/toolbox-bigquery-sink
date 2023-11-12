@@ -157,9 +157,10 @@ class SourcePathElements(_enum.Enum):
     def find_list_index_with_key_value(cls, key, value):
         def inner(row, path):
             to_checks = _nest.get(row, path)
-            for idx, to_check in enumerate(to_checks):
-                if to_check.get(key) == value:
-                    return [idx]
+            if isinstance(to_checks, _typing.Iterable):
+                for idx, to_check in enumerate(to_checks):
+                    if to_check.get(key) == value:
+                        return [idx]
             return None
 
         return inner
