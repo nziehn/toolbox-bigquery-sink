@@ -3,7 +3,6 @@ import enum as _enum
 import typing as _typing
 import datetime as _datetime
 import re as _re
-import distutils.util as _distutils_util
 from google.cloud import bigquery as _bigquery
 from google.cloud import storage as _storage
 from google.oauth2 import service_account as _service_account
@@ -175,6 +174,21 @@ class _MissingToken(object):
 
 
 source_fn_type = _typing.Callable[[_typing.Any, _typing.List], _typing.Any]
+
+
+def _strtobool(val):
+    """Convert a string representation of truth to true (1) or false (0).
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return 1
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 
 
 class SchemaField(object):
@@ -404,7 +418,7 @@ class SchemaField(object):
             value = value != 0
 
         if isinstance(value, str) and self.field_type == FieldType.BOOLEAN:
-            value = _distutils_util.strtobool(value)
+            value = _strtobool(value)
 
         if isinstance(value, _datetime.datetime) and self.field_type == FieldType.DATE:
             value = value.date()
@@ -435,7 +449,9 @@ class SchemaField(object):
             self.field_type == FieldType.DATETIME
             or self.field_type == FieldType.TIMESTAMP
         ) and isinstance(value, int):
-            value = _datetime.datetime.utcfromtimestamp(value)
+            value = _datetime.datetime.fromtimestamp(value, _datetime.timezone.utc).replace(
+                tzinfo=None
+            )
 
         return value
 

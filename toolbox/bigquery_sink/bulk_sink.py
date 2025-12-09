@@ -94,7 +94,7 @@ class BQBulkSink(object):
         self.storage = options.get_storage_client()
         self.temp_bucket_name = options.temp_bucket_name
         self.temp_bucket_root_path = options.temp_bucket_root_path
-        self.now = options.now or _datetime.datetime.utcnow()
+        self.now = options.now or _datetime.datetime.now(_datetime.timezone.utc).replace(tzinfo=None)
         self.correlation_id = options.correlation_id
         self.compressed_upload = compressed_upload
         self.rows_written = 0

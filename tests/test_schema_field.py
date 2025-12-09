@@ -1,5 +1,5 @@
 import datetime as _datetime
-from nose import tools as _tools
+import pytest
 
 from toolbox import bigquery_sink as _bs
 from toolbox.bigquery_sink import SourcePathElements
@@ -8,7 +8,7 @@ from toolbox.bigquery_sink import SourcePathElements
 def test_extract_simple():
     field = _bs.SchemaField(name="hello", field_type=_bs.FieldType.INTEGER)
     value = field.extract(row={"hello": 1})
-    _tools.assert_equal(value, 1)
+    assert value == 1
 
 
 def test_extract_source_path():
@@ -16,10 +16,10 @@ def test_extract_source_path():
         name="hello", field_type=_bs.FieldType.INTEGER, source_path=["world"]
     )
     value = field.extract(row={"world": 1})
-    _tools.assert_equal(value, 1)
+    assert value == 1
 
     missing_value = field.extract(row={"hello": 1})
-    _tools.assert_is_none(missing_value)
+    assert missing_value is None
 
 
 def test_extract_source_path_with_fn_in_path():
@@ -44,7 +44,7 @@ def test_extract_source_path_with_fn_in_path():
             ]
         }
     )
-    _tools.assert_equal("y", value)
+    assert "y" == value
 
 
 def test_extract_source_path_with_idx_search_in_path():
@@ -69,7 +69,7 @@ def test_extract_source_path_with_idx_search_in_path():
             ]
         }
     )
-    _tools.assert_equal("x", value)
+    assert "x" == value
 
 
 def test_extract_source_fn():
@@ -77,7 +77,7 @@ def test_extract_source_fn():
         name="hello", field_type=_bs.FieldType.INTEGER, source_fn=lambda row, path: 5
     )
     value = field.extract(row={})
-    _tools.assert_equal(value, 5)
+    assert value == 5
 
 
 def test_extract_source_path_deep():
@@ -92,7 +92,7 @@ def test_extract_source_path_deep():
         ],
     )
     value = field.extract(row={"world": {"bar": 1}})
-    _tools.assert_equal(value["foo"], 1)
+    assert value["foo"] == 1
 
 
 def test_extract_repeated():
@@ -103,7 +103,7 @@ def test_extract_repeated():
         mode=_bs.FieldMode.REPEATED,
     )
     value = field.extract(row={"world": ["a", "b", "c"]})
-    _tools.assert_list_equal(value, ["a", "b", "c"])
+    assert value == ["a", "b", "c"]
 
 
 def test_extract_repeated_deep_skip():
@@ -128,7 +128,7 @@ def test_extract_repeated_deep_skip():
             ]
         }
     )
-    _tools.assert_list_equal(value, [1, 2, 3])
+    assert value == [1, 2, 3]
 
 
 def test_extract_repeated_unroll():
@@ -152,7 +152,7 @@ def test_extract_repeated_unroll():
             ]
         }
     )
-    _tools.assert_list_equal(value, [1, 2, 3, 4, 5, 6])
+    assert value == [1, 2, 3, 4, 5, 6]
 
 
 def test_extract_repeated_unroll_with_structs():
@@ -183,17 +183,14 @@ def test_extract_repeated_unroll_with_structs():
             ]
         }
     )
-    _tools.assert_list_equal(
-        value,
-        [
-            {"value": 1},
-            {"value": 2},
-            {"value": 3},
-            {"value": 4},
-            {"value": 5},
-            {"value": 6},
-        ],
-    )
+    assert value == [
+        {"value": 1},
+        {"value": 2},
+        {"value": 3},
+        {"value": 4},
+        {"value": 5},
+        {"value": 6},
+    ]
 
 
 def test_extract_repeated_unroll_with_struct_root_reference():
@@ -234,17 +231,14 @@ def test_extract_repeated_unroll_with_struct_root_reference():
             ]
         }
     )
-    _tools.assert_list_equal(
-        value,
-        [
-            {"value": 1, "other": 20},
-            {"value": 2, "other": 20},
-            {"value": 3, "other": 30},
-            {"value": 4, "other": 30},
-            {"value": 5, "other": 40},
-            {"value": 6, "other": 40},
-        ],
-    )
+    assert value == [
+        {"value": 1, "other": 20},
+        {"value": 2, "other": 20},
+        {"value": 3, "other": 30},
+        {"value": 4, "other": 30},
+        {"value": 5, "other": 40},
+        {"value": 6, "other": 40},
+    ]
 
 
 def test_extract_repeated_deep():
@@ -264,7 +258,7 @@ def test_extract_repeated_deep():
     value = field.extract(
         row={"world": [{"inner_value": 1}, {"inner_value": 2}, {"inner_value": 3}]}
     )
-    _tools.assert_list_equal(value, [{"inner": 1}, {"inner": 2}, {"inner": 3}])
+    assert value == [{"inner": 1}, {"inner": 2}, {"inner": 3}]
 
 
 def test_extract_repeated_missing():
@@ -275,7 +269,7 @@ def test_extract_repeated_missing():
         mode=_bs.FieldMode.REPEATED,
     )
     value = field.extract(row={"wrong_key": ["a", "b", "c"]})
-    _tools.assert_list_equal(value, [])
+    assert value == []
 
 
 def test_extract_root_reference():
@@ -292,7 +286,7 @@ def test_extract_root_reference():
         ],
     )
     value = field.extract(row={"hello": "world", "foo": "bar"})
-    _tools.assert_equal(value["foo"], "bar")
+    assert value["foo"] == "bar"
 
 
 def test_extract_should_fire_exception():
@@ -303,12 +297,12 @@ def test_extract_should_fire_exception():
     value = field.extract(
         row={"hello": "world"}, should_fire_exception=lambda *x: False
     )
-    _tools.assert_is_none(value)
+    assert value is None
 
-    with _tools.assert_raises(ValueError):
+    with pytest.raises(ValueError):
         field.extract(row={"hello": "world"})
 
-    with _tools.assert_raises(ValueError):
+    with pytest.raises(ValueError):
         field.extract(row={"hello": "world"}, should_fire_exception=lambda *x: True)
 
 
@@ -320,7 +314,7 @@ def test_extract_repeated_not_ensured_type():
         mode=_bs.FieldMode.REPEATED,
     )
     value = field.extract(row={"world": ["a", "b", "c"]}, should_ensure_type=False)
-    _tools.assert_list_equal(value, ["a", "b", "c"])
+    assert value == ["a", "b", "c"]
 
 
 def test_ensure_type_integer():
@@ -328,10 +322,10 @@ def test_ensure_type_integer():
         name="int",
         field_type=_bs.FieldType.INTEGER,
     )
-    with _tools.assert_raises(ValueError):
+    with pytest.raises(ValueError):
         field._ensure_type(value="a")
 
-    _tools.assert_equal(field._ensure_type(value="1"), 1)
+    assert field._ensure_type(value="1") == 1
 
 
 def test_ensure_type_float():
@@ -339,10 +333,10 @@ def test_ensure_type_float():
         name="float",
         field_type=_bs.FieldType.FLOAT,
     )
-    with _tools.assert_raises(ValueError):
+    with pytest.raises(ValueError):
         field._ensure_type(value="a")
 
-    _tools.assert_equal(field._ensure_type(value="1.2"), 1.2)
+    assert field._ensure_type(value="1.2") == 1.2
 
 
 def test_ensure_type_string():
@@ -351,7 +345,7 @@ def test_ensure_type_string():
         field_type=_bs.FieldType.STRING,
     )
 
-    _tools.assert_equal(field._ensure_type(value=1), "1")
+    assert field._ensure_type(value=1) == "1"
 
 
 def test_ensure_type_date():
@@ -359,11 +353,11 @@ def test_ensure_type_date():
         name="date",
         field_type=_bs.FieldType.DATE,
     )
-    now = _datetime.datetime.utcnow()
+    now = _datetime.datetime.now(_datetime.timezone.utc).replace(tzinfo=None)
     today = now.date()
 
-    _tools.assert_equal(field._ensure_type(value=now), today)
-    _tools.assert_equal(field._ensure_type(value=300), _datetime.date(1970, 1, 1))
+    assert field._ensure_type(value=now) == today
+    assert field._ensure_type(value=300) == _datetime.date(1970, 1, 1)
 
 
 def test_ensure_type_timestamp():
@@ -371,11 +365,10 @@ def test_ensure_type_timestamp():
         name="date",
         field_type=_bs.FieldType.TIMESTAMP,
     )
-    now = _datetime.datetime.utcnow()
-    _tools.assert_equal(field._ensure_type(value=now), now)
-    _tools.assert_equal(
-        field._ensure_type(value=300), _datetime.datetime(1970, 1, 1, 0, 5, 0)
-    )
+
+    now = _datetime.datetime.now(_datetime.timezone.utc).replace(tzinfo=None)
+    assert field._ensure_type(value=now) == now
+    assert field._ensure_type(value=300) == _datetime.datetime(1970, 1, 1, 0, 5, 0)
 
 
 def test_ensure_type_boolean():
@@ -383,8 +376,8 @@ def test_ensure_type_boolean():
         name="bool",
         field_type=_bs.FieldType.BOOLEAN,
     )
-    _tools.assert_equal(field._ensure_type(value=1), True)
-    _tools.assert_equal(field._ensure_type(value=True), True)
+    assert field._ensure_type(value=1) is True
+    assert field._ensure_type(value=True) is True
 
 
 if __name__ == "__main__":
