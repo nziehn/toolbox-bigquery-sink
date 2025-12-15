@@ -23,9 +23,8 @@ setuptools.setup(
     author_email='nziehn@gmail.com',
     license='MIT',
     packages=[
-        package for package in setuptools.find_packages() if package.startswith('toolbox')
+        package for package in setuptools.find_namespace_packages() if package.startswith('toolbox')
     ],
-    namespace_packages=['toolbox'],
     install_requires=dependencies,
     zip_safe=False
 )
