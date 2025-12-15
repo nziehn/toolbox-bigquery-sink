@@ -28,10 +28,10 @@ jobs:
             python setup.py bdist_wheel
 
             if [ "${CIRCLE_BRANCH}" == "production" ] ; then
-                # prepare pypirc file
+                # prepare pypirc file (using API token auth)
                 echo -e "[pypi]" > ~/.pypirc
-                echo -e "username = nziehn" >> ~/.pypirc
-                echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
+                echo -e "username = __token__" >> ~/.pypirc
+                echo -e "password = $PYPI_API_TOKEN" >> ~/.pypirc
 
                 # publish
                 pip install twine
